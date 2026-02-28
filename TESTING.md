@@ -7,9 +7,17 @@
 使用 Emacs 自带的 `ert` 框架进行逻辑验证。
 
 ### 运行方式
-在终端运行：
+
+在根目录下运行以下命令（确保加载当前目录的代码）：
+
 ```bash
-emacs -Q --batch -L . -L tests -l tests/test-org-preview-impatient.el -f ert-run-tests-batch-and-exit
+emacs -Q --batch --eval "(progn (require 'package) (package-initialize) (push \"$PWD/\" load-path) (load-file \"tests/test-org-preview-impatient.el\") (ert-run-tests-batch-and-exit))"
+```
+
+或者运行集成测试：
+
+```bash
+emacs -Q --batch --eval "(progn (require 'package) (package-initialize) (push \"$PWD/\" load-path) (load-file \"tests/test-org-preview-impatient-integration.el\") (ert-run-tests-batch-and-exit))"
 ```
 
 ### 验证点

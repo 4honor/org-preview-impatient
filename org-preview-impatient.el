@@ -50,6 +50,18 @@
 (defvar-local org-preview-impatient--async-process nil
   "The current active async export process.")
 
+(defvar org-preview-impatient--mode-line-string " OrgImp"
+  "String to display in the mode line.")
+
+;;; Public Commands
+
+(defun org-preview-impatient-show-html-buffer ()
+  "Display the hidden HTML output buffer."
+  (interactive)
+  (if (buffer-live-p org-preview-impatient--output-buffer)
+      (switch-to-buffer-other-window org-preview-impatient--output-buffer)
+    (message "No active preview buffer for this buffer.")))
+
 ;;; Excalidraw Support
 
 (defun org-preview-impatient-setup-excalidraw ()
@@ -60,13 +72,14 @@
 
 ;;; Core Logic
 
-(defun org-preview-impatient--export-callback (html-content)
+(defun org-preview-impatient--export-callback (html-content output-buffer)
   "Callback for the async export task.
-HTML-CONTENT is the generated HTML string."
-  (when (buffer-live-p org-preview-impatient--output-buffer)
-    (with-current-buffer org-preview-impatient--output-buffer
+HTML-CONTENT is the generated HTML string.
+OUTPUT-BUFFER is the buffer to update."
+  (when (buffer-live-p output-buffer)
+    (with-current-buffer output-buffer
       (erase-buffer)
-      (insert html-content)
+      (insert (or html-content ""))
       (set-buffer-modified-p nil))))
 
 (defun org-preview-impatient--post-process-html (html)
@@ -76,20 +89,21 @@ HTML-CONTENT is the generated HTML string."
     (goto-char (point-min))
     ;; Embed local images as Base64
     (while (re-search-forward "<img src=\"\\([^\"]+\\)\"" nil t)
-      (let* ((src (match-string 1))
+      (let* ((match-beg (match-beginning 0))
+             (match-end (match-end 0))
+             (src (match-string 1))
              (path (substring-no-properties src)))
-        (save-match-data
-          ;; Remove file:// prefix if present
-          (when (string-match "^file:/*\\(.*\\)" path)
-            (setq path (match-string 1 path)))
-          ;; On some systems we might need to add a leading slash back
-          (unless (file-name-absolute-p path)
-            (let ((abs-path (expand-file-name path)))
-              (if (file-exists-p abs-path)
-                  (setq path abs-path)
-                ;; Try adding / if it looks like a Unix absolute path originally
-                (when (file-exists-p (concat "/" path))
-                  (setq path (concat "/" path)))))))
+        ;; Remove file:// prefix if present
+        (when (string-match "^file:/*\\(/.*\\)" path)
+          (setq path (match-string 1 path)))
+        ;; Handle path normalization
+        (unless (file-name-absolute-p path)
+          (let ((abs-path (expand-file-name path)))
+            (if (file-exists-p abs-path)
+                (setq path abs-path)
+              (when (file-exists-p (concat "/" path))
+                (setq path (concat "/" path))))))
+        
         (when (file-exists-p path)
           (let ((data (with-temp-buffer
                         (set-buffer-multibyte nil)
@@ -97,39 +111,82 @@ HTML-CONTENT is the generated HTML string."
                         (base64-encode-region (point-min) (point-max) t)
                         (buffer-string)))
                 (ext (file-name-extension path)))
-            (replace-match (format "<img src=\"data:image/%s;base64,%s\"" (or ext "png") data) t t)))))
+            (goto-char match-beg)
+            (delete-region match-beg match-end)
+            (insert (format "<img src=\"data:image/%s;base64,%s\"" (or ext "png") data))))))
     (buffer-string)))
 
 (defun org-preview-impatient--trigger-async-export (buffer-content)
   "Start an asynchronous export of BUFFER-CONTENT."
   (let ((lp load-path)
-        (extra-pkgs org-preview-impatient-extra-packages))
+        (ep exec-path)
+        (extra-pkgs org-preview-impatient-extra-packages)
+        (out-buf org-preview-impatient--output-buffer)
+        ;; Safely capture variables to pass to the async worker
+        (babel-langs (when (boundp 'org-babel-load-languages) org-babel-load-languages))
+        (confirm-babel (when (boundp 'org-confirm-babel-evaluate) org-confirm-babel-evaluate))
+        (puml-jar (when (boundp 'org-plantuml-jar-path) org-plantuml-jar-path))
+        (puml-exec (when (boundp 'org-plantuml-executable-path) org-plantuml-executable-path))
+        (puml-mode (when (boundp 'org-plantuml-exec-mode) org-plantuml-exec-mode)))
     (setq org-preview-impatient--async-process
           (async-start
            `(lambda ()
               (setq load-path ',lp)
+              (setq exec-path ',ep)
               (require 'org)
               (require 'ox-html)
               (require 'org-preview-impatient)
-              ;; Load extra packages
-              (dolist (pkg ',extra-pkgs)
-                (require pkg nil t))
-              
-              (with-temp-buffer
-                (insert ,buffer-content)
-                (org-mode)
-                (let ((org-html-inline-images t)
-                      (org-export-with-broken-links t))
-                  (let ((html (with-current-buffer (org-html-export-as-html nil nil nil t)
-                                (buffer-string))))
-                    (org-preview-impatient--post-process-html html)))))
-           (lambda (result)
-             (org-preview-impatient--export-callback result))))))
+              (condition-case err
+                  (let ((org-html-inline-images t)
+                        (org-export-with-broken-links t)
+                        (buffer-content ,buffer-content))
+                    (with-temp-buffer
+                      (insert buffer-content)
+                      ;; Load extra packages FIRST so variables are defined
+                      (dolist (pkg ',extra-pkgs)
+                        (require pkg nil t))
+                      
+                      ;; Setup plantuml variables
+                      (when ',puml-jar (setq org-plantuml-jar-path ',puml-jar))
+                      (when ',puml-exec (setq org-plantuml-executable-path ',puml-exec))
+                      (when ',puml-mode (setq org-plantuml-exec-mode ',puml-mode))
+                      
+                      (org-mode)
 
-(defun org-preview-impatient-update ()
-  "Trigger an update of the preview."
-  (let ((buffer-content (buffer-substring-no-properties (point-min) (point-max))))
-    (org-preview-impatient--trigger-async-export buffer-content)))
+                      ;; Setup babel languages
+                      (when ',babel-langs
+                        (setq org-babel-load-languages ',babel-langs)
+                        (org-babel-do-load-languages 'org-babel-load-languages org-babel-load-languages))
+                      (when (boundp 'org-confirm-babel-evaluate)
+                        (setq org-confirm-babel-evaluate ',confirm-babel))
+                      
+                      (let ((html (with-current-buffer (org-html-export-as-html nil nil nil t)
+                                    (buffer-string))))
+                        (org-preview-impatient--post-process-html html))))
+                (error nil)))
+           (lambda (result)
+             (org-preview-impatient--export-callback result out-buf))))))
+
+(defun org-preview-impatient--trigger-export-sync ()
+  "Force a synchronous export of the current buffer."
+  (let ((org-html-inline-images t)
+        (org-export-with-broken-links t)
+        (buffer-content (buffer-substring-no-properties (point-min) (point-max))))
+    (with-temp-buffer
+      (insert buffer-content)
+      (org-mode)
+      (let ((html (with-current-buffer (org-html-export-as-html nil nil nil t)
+                    (buffer-string))))
+        (org-preview-impatient--post-process-html html)))))
+
+(defun org-preview-impatient-update (&optional sync)
+  "Trigger an update of the preview.
+If SYNC is non-nil, perform the export synchronously."
+  (if sync
+      (let ((result (org-preview-impatient--trigger-export-sync)))
+        (org-preview-impatient--export-callback result org-preview-impatient--output-buffer))
+    (let ((buffer-content (buffer-substring-no-properties (point-min) (point-max))))
+      (org-preview-impatient--trigger-async-export buffer-content))))
 
 ;;; Minor Mode
 
@@ -145,20 +202,24 @@ HTML-CONTENT is the generated HTML string."
 ;;;###autoload
 (define-minor-mode org-preview-impatient-mode
   "Minor mode for impatient Org-mode preview."
-  :lighter " OrgImp"
+  :lighter org-preview-impatient--mode-line-string
   (if org-preview-impatient-mode
       (progn
         (setq org-preview-impatient--output-buffer
-              (get-buffer-create (format " *org-preview-%s*" (buffer-name))))
+              (get-buffer-create (format "org-preview-%s" (buffer-name))))
         (with-current-buffer org-preview-impatient--output-buffer
+          (if (fboundp 'mhtml-mode)
+              (mhtml-mode)
+            (html-mode))
           (impatient-mode 1))
         (add-hook 'after-change-functions #'org-preview-impatient--after-change nil t)
+        (require 'simple-httpd)
         (setq httpd-port org-preview-impatient-port)
         (httpd-start)
         (org-preview-impatient-update)
         (let ((url (format "http://localhost:%d/imp/live/%s"
                            org-preview-impatient-port
-                           (buffer-name org-preview-impatient--output-buffer))))
+                           (url-hexify-string (buffer-name org-preview-impatient--output-buffer)))))
           (browse-url url)
           (message "Org Preview Impatient started at %s" url)))
     (progn
