@@ -219,10 +219,15 @@ If SYNC is non-nil, perform the export synchronously."
   "Minor mode for impatient Org-mode preview."
   :lighter org-preview-impatient--mode-line-string
   (if org-preview-impatient-mode
-      (progn
+      (let ((source-file buffer-file-name)
+            (source-dir default-directory))
         (setq org-preview-impatient--output-buffer
               (get-buffer-create (format "org-preview-%s" (buffer-name))))
         (with-current-buffer org-preview-impatient--output-buffer
+          (setq default-directory source-dir)
+          (when source-file
+            ;; Impatient-mode uses buffer-file-name to serve relative assets (e.g. from setupfile theme CSS)
+            (setq buffer-file-name (concat source-file ".html")))
           (if (fboundp 'mhtml-mode)
               (mhtml-mode)
             (html-mode))
