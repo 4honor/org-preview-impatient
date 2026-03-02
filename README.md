@@ -1,5 +1,7 @@
 # org-preview-impatient
 
+![CI](https://github.com/4honor/org-preview-impatient/actions/workflows/test.yml/badge.svg)
+
 `org-preview-impatient` 是一个 Emacs 软件包，通过异步导出和轻量级 Web 服务器，为 Org-mode 提供**极致流畅、接近零延迟**的浏览器实时预览体验。
 
 ## ✨ 特性

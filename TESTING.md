@@ -8,16 +8,18 @@
 
 ### 运行方式
 
-在根目录下运行以下命令（确保加载当前目录的代码）：
+本项目使用 `eask` 管理和运行测试。
+
+首先在根目录下安装开发依赖：
 
 ```bash
-emacs -Q --batch --eval "(progn (require 'package) (package-initialize) (push \"$PWD/\" load-path) (load-file \"tests/test-org-preview-impatient.el\") (ert-run-tests-batch-and-exit))"
+eask install-deps --dev
 ```
 
-或者运行集成测试：
+运行所有自动化测试（包含单元测试与集成测试）：
 
 ```bash
-emacs -Q --batch --eval "(progn (require 'package) (package-initialize) (push \"$PWD/\" load-path) (load-file \"tests/test-org-preview-impatient-integration.el\") (ert-run-tests-batch-and-exit))"
+eask test ert tests/test-*.el
 ```
 
 ### 验证点
@@ -26,15 +28,8 @@ emacs -Q --batch --eval "(progn (require 'package) (package-initialize) (push \"
 - [ ] 启用模式时是否正确设置了 `httpd-port`。
 - [ ] 修改缓冲区内容是否正确触发了防抖计时器。
 - [ ] 本地图片是否成功转换为 Base64 嵌入（验证一致性）。
-
-### 运行自动化测试
-```bash
-# 运行基础逻辑测试
-emacs -Q --batch -L . -L tests --eval "(progn (require 'package) (package-initialize))" -l tests/test-org-preview-impatient.el -f ert-run-tests-batch-and-exit
-
-# 运行图片嵌入测试
-emacs -Q --batch -L . -L tests --eval "(progn (require 'package) (package-initialize))" -l tests/test-org-preview-impatient-images.el -f ert-run-tests-batch-and-exit
-```
+- [ ] PlantUML, Excalidraw 等集成在同步与异步模式下能否正常导出。
+- [ ] 能否支持 `#+SETUPFILE` 及外联主题 `<head>` 注入。
 
 ---
 

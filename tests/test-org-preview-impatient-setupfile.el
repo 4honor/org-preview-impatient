@@ -1,3 +1,5 @@
+;;; test-org-preview-impatient-setupfile.el --- Tests for SETUPFILE -*- lexical-binding: t -*-
+
 (require 'ert)
 (require 'org-preview-impatient)
 (require 'f)

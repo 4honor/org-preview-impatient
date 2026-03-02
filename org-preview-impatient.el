@@ -25,7 +25,8 @@
   :prefix "org-preview-impatient-")
 
 (defcustom org-preview-impatient-debounce-interval 0.5
-  "Interval in seconds to wait after the last change before triggering a preview update."
+  "Interval in seconds to wait after the last change.
+This delay happens before triggering a preview update."
   :type 'number
   :group 'org-preview-impatient)
 

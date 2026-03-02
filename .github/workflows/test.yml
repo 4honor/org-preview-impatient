@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        emacs_version:
+          - 27.2
+          - 28.2
+          - 29.4
+    steps:
+    - uses: actions/checkout@v4
+    
+    - uses: purcell/setup-emacs@master
+      with:
+        version: ${{ matrix.emacs_version }}
+
+    - uses: emacs-eask/setup-eask@master
+      with:
+        version: 'snapshot'
+
+    - name: Install Dependencies
+      run: eask install-deps --dev
+
+    - name: Run Tests
+      run: eask test ert tests/test-*.el
