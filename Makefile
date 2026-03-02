@@ -7,5 +7,8 @@ test:
 compile:
 	eask compile
 
+setup-ellsp:
+	find .eask -type f -name "install-ellsp" -exec bash {} \;
+
 clean:
 	eask clean

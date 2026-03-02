@@ -12,13 +12,23 @@
 
 本项目使用 `eask` 管理和运行测试，并在开发依赖中配置了 `ellsp` 作为 Elisp 语言服务器 (Language Server)，以在其他编辑器（如 VSCode 或使用 Eglot/LSP-mode 的 Emacs）中提供更好的自动补全和静态分析体验。
 
-首先在项目根目录下安装所有依赖（包含开发和测试依赖）：
+首先在项目根目录下安装所有包依赖（包含开发和测试依赖）：
 
 ```bash
 eask install-deps --dev
 ```
 
-运行安装后，`ellsp` 会作为一个可用的 LSP 供你的编辑器调用进行代码补全。
+然后还需要为其下载底层配套的二进制文件以让 LSP 生效：
+
+```bash
+make setup-ellsp
+```
+
+运行安装后，您就可以通过以下命令启动并验证 `ellsp`，或将其配置作为可用的 LSP 供你的编辑器调用：
+
+```bash
+eask exec ellsp
+```
 
 ### 运行自动化测试
 
