@@ -11,6 +11,7 @@
 (source "gnu")
 (source "melpa")
 (source "nongnu")
+(source "jcs-elpa" "https://jcs-emacs.github.io/jcs-elpa/packages/")
 
 (script "test" "echo \"Running tests...\" && eask compile && eask install-deps --dev && eask ert ./tests/test-org-preview-impatient.el ./tests/test-org-preview-impatient-images.el ./tests/test-org-preview-impatient-integration.el ./tests/test-org-preview-impatient-setupfile.el")
 
@@ -20,4 +21,5 @@
 (depends-on "impatient-mode" "1.1.0")
 
 (development
-  (depends-on "f"))
+  (depends-on "f")
+  (depends-on "ellsp"))
