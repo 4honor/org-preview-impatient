@@ -173,8 +173,7 @@ OUTPUT-BUFFER is the buffer to update."
                       (when (boundp 'org-confirm-babel-evaluate)
                         (setq org-confirm-babel-evaluate ',confirm-babel))
                       
-                      (let ((html (with-current-buffer (org-html-export-as-html nil nil nil export-body-only)
-                                    (buffer-string))))
+                      (let ((html (org-export-as 'html nil nil export-body-only)))
                         (org-preview-impatient--post-process-html html))))
                 (error nil)))
            (lambda (result)
@@ -192,8 +191,7 @@ OUTPUT-BUFFER is the buffer to update."
       (setq buffer-file-name file)
       (insert buffer-content)
       (org-mode)
-      (let ((html (with-current-buffer (org-html-export-as-html nil nil nil org-preview-impatient-body-only)
-                    (buffer-string))))
+      (let ((html (org-export-as 'html nil nil org-preview-impatient-body-only)))
         (org-preview-impatient--post-process-html html)))))
 
 (defun org-preview-impatient-update (&optional sync)
