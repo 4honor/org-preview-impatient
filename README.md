@@ -9,6 +9,7 @@
 - **一致性保证**：自动将本地图片转换为 **Base64 编码**嵌入 HTML，确保浏览器预览效果与源文件完美一致。
 - **自动交互**：开启模式后自动打开默认浏览器并跳转至预览页面。
 - **Excalidraw 支持**：深度集成 `org-excalidraw`。
+- **自定义主题与 SETUPFILE**：完全支持 Org 的 `#+SETUPFILE:` 指令加载自定义主题及宏。
 
 ## 📦 安装
 
@@ -20,6 +21,9 @@
   :config
   ;; 默认端口为 8888，如果需要修改：
   ;; (setq org-preview-impatient-port 8888)
+  
+  ;; 如果你的 #+SETUPFILE 中包含需要在 <head> 中加载的 HTML 样式（如 istyle.theme），请将其设置为 nil
+  ;; (setq org-preview-impatient-body-only nil)
   )
 ```
 
@@ -44,6 +48,7 @@
 | `org-preview-impatient-port` | `8888` | Web 服务器监听端口 |
 | `org-preview-impatient-debounce-interval` | `0.5` | 触发预览更新的防抖时间（秒） |
 | `org-preview-impatient-extra-packages` | `'(org-excalidraw)` | 异步导出进程需要额外加载的包 |
+| `org-preview-impatient-body-only` | `t` | 导出时是否只输出 `<body>` 内容。若设为 `nil`，将包含完整的 `<head>` 信息，以便应用 `#+SETUPFILE` 引入的主题样式 |
 
 ## 🛠 开发与测试
 

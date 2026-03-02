@@ -39,6 +39,12 @@
   :type '(repeat symbol)
   :group 'org-preview-impatient)
 
+(defcustom org-preview-impatient-body-only t
+  "Whether to export only the body of the Org file.
+Set to nil if you want to include HTML head (styles, etc.) from #+SETUPFILE."
+  :type 'boolean
+  :group 'org-preview-impatient)
+
 ;;; Variables
 
 (defvar-local org-preview-impatient--timer nil
@@ -120,8 +126,11 @@ OUTPUT-BUFFER is the buffer to update."
   "Start an asynchronous export of BUFFER-CONTENT."
   (let ((lp load-path)
         (ep exec-path)
+        (dir default-directory)
+        (file buffer-file-name)
         (extra-pkgs org-preview-impatient-extra-packages)
         (out-buf org-preview-impatient--output-buffer)
+        (body-only org-preview-impatient-body-only)
         ;; Safely capture variables to pass to the async worker
         (babel-langs (when (boundp 'org-babel-load-languages) org-babel-load-languages))
         (confirm-babel (when (boundp 'org-confirm-babel-evaluate) org-confirm-babel-evaluate))
@@ -139,8 +148,11 @@ OUTPUT-BUFFER is the buffer to update."
               (condition-case err
                   (let ((org-html-inline-images t)
                         (org-export-with-broken-links t)
-                        (buffer-content ,buffer-content))
+                        (buffer-content ,buffer-content)
+                        (export-body-only ,body-only))
                     (with-temp-buffer
+                      (setq default-directory ,dir)
+                      (setq buffer-file-name ,file)
                       (insert buffer-content)
                       ;; Load extra packages FIRST so variables are defined
                       (dolist (pkg ',extra-pkgs)
@@ -160,7 +172,7 @@ OUTPUT-BUFFER is the buffer to update."
                       (when (boundp 'org-confirm-babel-evaluate)
                         (setq org-confirm-babel-evaluate ',confirm-babel))
                       
-                      (let ((html (with-current-buffer (org-html-export-as-html nil nil nil t)
+                      (let ((html (with-current-buffer (org-html-export-as-html nil nil nil export-body-only)
                                     (buffer-string))))
                         (org-preview-impatient--post-process-html html))))
                 (error nil)))
@@ -171,11 +183,15 @@ OUTPUT-BUFFER is the buffer to update."
   "Force a synchronous export of the current buffer."
   (let ((org-html-inline-images t)
         (org-export-with-broken-links t)
+        (dir default-directory)
+        (file buffer-file-name)
         (buffer-content (buffer-substring-no-properties (point-min) (point-max))))
     (with-temp-buffer
+      (setq default-directory dir)
+      (setq buffer-file-name file)
       (insert buffer-content)
       (org-mode)
-      (let ((html (with-current-buffer (org-html-export-as-html nil nil nil t)
+      (let ((html (with-current-buffer (org-html-export-as-html nil nil nil org-preview-impatient-body-only)
                     (buffer-string))))
         (org-preview-impatient--post-process-html html)))))
 
