@@ -89,10 +89,15 @@ OUTPUT-BUFFER is the buffer to update."
       (insert (or html-content ""))
       (set-buffer-modified-p nil))))
 
-(defun org-preview-impatient--post-process-html (html)
+(defun org-preview-impatient--post-process-html (html &optional out-buf-name)
   "Post-process exported HTML to embed images and more."
   (with-temp-buffer
     (insert html)
+    (goto-char (point-min))
+    ;; Inject base tag to fix relative assets paths inside impatient-mode iframe
+    (when (and out-buf-name
+               (re-search-forward "<head>" nil t))
+      (insert (format "\n<base href=\"/imp/live/%s/\">" (url-hexify-string out-buf-name))))
     (goto-char (point-min))
     ;; Embed local images as Base64
     (while (re-search-forward "<img src=\"\\([^\"]+\\)\"" nil t)
@@ -131,6 +136,8 @@ OUTPUT-BUFFER is the buffer to update."
         (file buffer-file-name)
         (extra-pkgs org-preview-impatient-extra-packages)
         (out-buf org-preview-impatient--output-buffer)
+        (out-buf-name (and (buffer-live-p org-preview-impatient--output-buffer)
+                           (buffer-name org-preview-impatient--output-buffer)))
         (body-only org-preview-impatient-body-only)
         ;; Safely capture variables to pass to the async worker
         (babel-langs (when (boundp 'org-babel-load-languages) org-babel-load-languages))
@@ -174,7 +181,7 @@ OUTPUT-BUFFER is the buffer to update."
                         (setq org-confirm-babel-evaluate ',confirm-babel))
                       
                       (let ((html (org-export-as 'html nil nil export-body-only)))
-                        (org-preview-impatient--post-process-html html))))
+                        (org-preview-impatient--post-process-html html ,out-buf-name))))
                 (error nil)))
            (lambda (result)
              (org-preview-impatient--export-callback result out-buf))))))
@@ -192,7 +199,7 @@ OUTPUT-BUFFER is the buffer to update."
       (insert buffer-content)
       (org-mode)
       (let ((html (org-export-as 'html nil nil org-preview-impatient-body-only)))
-        (org-preview-impatient--post-process-html html)))))
+        (org-preview-impatient--post-process-html html (buffer-name org-preview-impatient--output-buffer))))))
 
 (defun org-preview-impatient-update (&optional sync)
   "Trigger an update of the preview.
