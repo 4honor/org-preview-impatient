@@ -46,6 +46,12 @@ Set to nil if you want to include HTML head (styles, etc.) from #+SETUPFILE."
   :type 'boolean
   :group 'org-preview-impatient)
 
+(defcustom org-preview-impatient-default-setupfile nil
+  "Default SETUPFILE to use for preview, if any.
+This file will be injected at the top of the exported Org buffer."
+  :type '(choice (const :tag "None" nil) string)
+  :group 'org-preview-impatient)
+
 ;;; Variables
 
 (defvar-local org-preview-impatient--timer nil
@@ -139,6 +145,7 @@ OUTPUT-BUFFER is the buffer to update."
         (out-buf-name (and (buffer-live-p org-preview-impatient--output-buffer)
                            (buffer-name org-preview-impatient--output-buffer)))
         (body-only org-preview-impatient-body-only)
+        (def-setupfile org-preview-impatient-default-setupfile)
         ;; Safely capture variables to pass to the async worker
         (babel-langs (when (boundp 'org-babel-load-languages) org-babel-load-languages))
         (confirm-babel (when (boundp 'org-confirm-babel-evaluate) org-confirm-babel-evaluate))
@@ -157,10 +164,13 @@ OUTPUT-BUFFER is the buffer to update."
                   (let ((org-html-inline-images t)
                         (org-export-with-broken-links t)
                         (buffer-content ,buffer-content)
-                        (export-body-only ,body-only))
+                        (export-body-only ,body-only)
+                        (def-setup-file ,def-setupfile))
                     (with-temp-buffer
                       (setq default-directory ,dir)
                       (setq buffer-file-name ,file)
+                      (when def-setup-file
+                        (insert (format "#+SETUPFILE: %s\n" def-setup-file)))
                       (insert buffer-content)
                       ;; Load extra packages FIRST so variables are defined
                       (dolist (pkg ',extra-pkgs)
@@ -196,6 +206,8 @@ OUTPUT-BUFFER is the buffer to update."
     (with-temp-buffer
       (setq default-directory dir)
       (setq buffer-file-name file)
+      (when org-preview-impatient-default-setupfile
+        (insert (format "#+SETUPFILE: %s\n" org-preview-impatient-default-setupfile)))
       (insert buffer-content)
       (org-mode)
       (let ((html (org-export-as 'html nil nil org-preview-impatient-body-only)))

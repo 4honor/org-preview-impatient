@@ -26,6 +26,9 @@
   
   ;; 如果你的 #+SETUPFILE 中包含需要在 <head> 中加载的 HTML 样式（如 istyle.theme），请将其设置为 nil
   ;; (setq org-preview-impatient-body-only nil)
+
+  ;; 如果你希望为所有预览设定一个全局的默认主题 (配合 body-only 为 nil 使用):
+  ;; (setq org-preview-impatient-default-setupfile "~/GitHub/wiki/static/themes/istyle/istyle.theme")
   )
 ```
 
@@ -51,6 +54,7 @@
 | `org-preview-impatient-debounce-interval` | `0.5` | 触发预览更新的防抖时间（秒） |
 | `org-preview-impatient-extra-packages` | `'(org-excalidraw)` | 异步导出进程需要额外加载的包 |
 | `org-preview-impatient-body-only` | `t` | 导出时是否只输出 `<body>` 内容。若设为 `nil`，将包含完整的 `<head>` 信息，以便应用 `#+SETUPFILE` 引入的主题样式 |
+| `org-preview-impatient-default-setupfile` | `nil` | 全局默认的 `SETUPFILE` 文件路径。设定后等效于在每个导出的 org 文件头部自动加入 `#+SETUPFILE: xxx` |
 
 ## 🛠 开发与测试
 
