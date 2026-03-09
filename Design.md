@@ -58,15 +58,15 @@ graph LR
 ## 5. 任务分解 (Milestones)
 
 1.  **Phase 1: 最小可行性原型 (MVP)**
-    *   搭建 `simple-httpd` 服务器。
-    *   实现同步的 Org 导出到隐藏 Buffer 并在浏览器显示。
+    - [x] 搭建 `simple-httpd` 服务器。
+    - [x] 实现同步的 Org 导出到隐藏 Buffer 并在浏览器显示。
 2.  **Phase 2: 异步化与防抖**
-    *   集成 `async.el`。
-    *   实现后台导出，不影响打字。
+    - [x] 集成 `async.el`。
+    - [x] 实现后台导出，不影响打字。
 3.  **Phase 3: 媒体与美化**
-    *   支持 PlantUML 渲染。
-    *   引入 Base64 自动嵌入。
-    *   提供一套现代化的默认 CSS（如 `org-css`）。
+    - [x] 支持 PlantUML 渲染。
+    - [x] 引入 Base64 自动嵌入。
+    - [x] 提供一套现代化的默认 CSS（支持 SETUPFILE 自定义主题）。
 4.  **Phase 4: 同步滚动**
-    *   实现行号注入过滤器。
-    *   实现双向/单向滚动同步。
+    - [ ] 实现行号注入过滤器。
+    - [ ] 实现双向/单向滚动同步。

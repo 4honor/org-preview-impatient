@@ -42,21 +42,17 @@
             (delete-directory temp-dir t)))))))
 
 (ert-deftest test-org-preview-impatient-setupfile-istyle-theme ()
-  "Test #+SETUPFILE support with specific ~/GitHub/wiki/static/themes/istyle/istyle.theme path."
+  "Test #+SETUPFILE support."
   (skip-unless (executable-find "emacs"))
-  (let* ((theme-dir (expand-file-name "~/GitHub/wiki/static/themes/istyle/"))
+  (let* ((theme-dir (make-temp-file "org-preview-istyle-temp-" t))
          (theme-file (expand-file-name "istyle.theme" theme-dir))
          (css-file (expand-file-name "istyle.css" theme-dir))
-         (org-buffer (generate-new-buffer "istyle-test.org"))
-         ;; We will mock the files if they do not exist
-         (mocked (not (file-exists-p theme-dir))))
+         (org-buffer (generate-new-buffer "istyle-test.org")))
     
-    (when mocked
-      (make-directory theme-dir t)
-      (with-temp-file theme-file
-        (insert "#+HTML_HEAD: <link rel=\"stylesheet\" type=\"text/css\" href=\"istyle.css\" />\n"))
-      (with-temp-file css-file
-        (insert "body { background-color: #f0f0f0; }")))
+    (with-temp-file theme-file
+      (insert "#+HTML_HEAD: <link rel=\"stylesheet\" type=\"text/css\" href=\"istyle.css\" />\n"))
+    (with-temp-file css-file
+      (insert "body { background-color: #f0f0f0; }"))
 
     (with-current-buffer org-buffer
       (insert (format "#+SETUPFILE: %s\n" theme-file))
@@ -73,8 +69,6 @@
                   (goto-char (point-min))
                   ;; Check if the HTML_HEAD from istyle.theme is injected
                   (should (re-search-forward "<link .*href=\"istyle\\.css\"" nil t))))
-            ;; Cleanup buffer
+            ;; Cleanup buffer and files
             (kill-buffer org-buffer)
-            ;; Cleanup mocked files
-            (when mocked
-              (delete-directory (expand-file-name "~/GitHub/wiki") t))))))))
+            (delete-directory theme-dir t)))))))

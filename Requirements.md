@@ -12,23 +12,23 @@
 ## 3. 功能需求
 
 ### 3.1 核心功能
-*   **自动触发同步**：支持在缓冲保存 (Save) 或实时修改 (Buffer Change) 时触发预览更新。
-*   **Web 预览服务器**：内部集成或依赖轻量级 Web 服务器，负责提供静态资源及推送更新。
-*   **WebSocket 通信**：利用 WebSocket 技术实现从 Emacs 到浏览器的增量/全量更新推送，避免页面全量刷新导致的闪烁。
-*   **同步滚动 (Sync Scroll)**：Emacs 视口滚动时，浏览器自动跟随跳转到对应位置；反之亦支持从预览位置反向定位 Emacs 光标（可选）。
+- [x] **自动触发同步**：支持在缓冲保存 (Save) 或实时修改 (Buffer Change) 时触发预览更新。
+- [x] **Web 预览服务器**：内部集成或依赖轻量级 Web 服务器，负责提供静态资源及推送更新。
+- [x] **WebSocket 通信**：利用 WebSocket 技术实现从 Emacs 到浏览器的增量/全量更新推送，避免页面全量刷新导致的闪烁。
+- [ ] **同步滚动 (Sync Scroll)**：Emacs 视口滚动时，浏览器自动跟随跳转到对应位置；反之亦支持从预览位置反向定位 Emacs 光标（可选）。
 
 ### 3.2 渲染与媒体处理
-*   **标准导出支持**：默认支持 Emacs 自带的 `ox-html` 导出逻辑。
-*   **Babel 与 PlantUML**：支持将 PlantUML 等 Babel 代码块渲染为图片，并自动嵌入 HTML。
-*   **Excalidraw 支持**：深度集成 [org-excalidraw](https://github.com/4honor/org-excalidraw)，识别 `excalidraw://` 协议链接，并利用其导出逻辑在预览中渲染为 SVG/PNG 图片。
-*   **资源嵌入 (Portability)**：支持将本地图片资源以 Base64 等方式直接嵌入 HTML，确保预览的一致性。
-*   **LaTeX 公式**：集成 MathJax/Katex 以支持高质量的数学公式展示。
-*   **代码高亮**：预览中包含代码块的语法高亮。
+- [x] **标准导出支持**：默认支持 Emacs 自带的 `ox-html` 导出逻辑。
+- [x] **Babel 与 PlantUML**：支持将 PlantUML 等 Babel 代码块渲染为图片，并自动嵌入 HTML。
+- [x] **Excalidraw 支持**：深度集成 [org-excalidraw](https://github.com/4honor/org-excalidraw)，识别 `excalidraw://` 协议链接，并利用其导出逻辑在预览中渲染为 SVG/PNG 图片。
+- [x] **资源嵌入 (Portability)**：支持将本地图片资源以 Base64 等方式直接嵌入 HTML，确保预览的一致性。
+- [x] **LaTeX 公式**：集成 MathJax/Katex 以支持高质量的数学公式展示。
+- [x] **代码高亮**：预览中包含代码块的语法高亮。
 
 ### 3.3 交互增强
-*   **链接跳转**：支持 Org 文件内部链接在预览页面中的正确定位与跳转。
-*   **状态指示**：在 Emacs Mode Line 中可视化显示当前预览连接状态（已连接/离线/同步中）。
-*   **多浏览器支持**：兼容 Chrome, Firefox, Safari 等主流现代浏览器。
+- [x] **链接跳转**：支持 Org 文件内部链接在预览页面中的正确定位与跳转。
+- [ ] **状态指示**：在 Emacs Mode Line 中可视化显示当前预览连接状态（已连接/离线/同步中）。
+- [x] **多浏览器支持**：兼容 Chrome, Firefox, Safari 等主流现代浏览器。
 
 ## 4. 技术方案（初步设想）
 *   **Emacs 端**：Elisp 编写的 Minor Mode，监听文件变化并异步调用导出函数。
