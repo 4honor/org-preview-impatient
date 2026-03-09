@@ -136,7 +136,8 @@ OUTPUT-BUFFER is the buffer to update."
 
 (defun org-preview-impatient--trigger-async-export (buffer-content)
   "Start an asynchronous export of BUFFER-CONTENT."
-  (let ((lp load-path)
+  (let ((async-prompt-for-password nil)
+        (lp load-path)
         (ep exec-path)
         (dir default-directory)
         (file buffer-file-name)
