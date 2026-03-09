@@ -19,8 +19,6 @@
 (require 'simple-httpd)
 (require 'impatient-mode)
 
-(defvar async-prompt-for-password)
-
 (defgroup org-preview-impatient nil
   "Fluent Org-mode preview in browser."
   :group 'org
@@ -138,8 +136,7 @@ OUTPUT-BUFFER is the buffer to update."
 
 (defun org-preview-impatient--trigger-async-export (buffer-content)
   "Start an asynchronous export of BUFFER-CONTENT."
-  (let ((async-prompt-for-password nil)
-        (lp load-path)
+  (let ((lp load-path)
         (ep exec-path)
         (dir default-directory)
         (file buffer-file-name)
@@ -149,12 +146,17 @@ OUTPUT-BUFFER is the buffer to update."
                            (buffer-name org-preview-impatient--output-buffer)))
         (body-only org-preview-impatient-body-only)
         (def-setupfile org-preview-impatient-default-setupfile)
+        (temp-input-file (make-temp-file "org-preview-async-in-"))
         ;; Safely capture variables to pass to the async worker
         (babel-langs (when (boundp 'org-babel-load-languages) org-babel-load-languages))
         (confirm-babel (when (boundp 'org-confirm-babel-evaluate) org-confirm-babel-evaluate))
         (puml-jar (when (boundp 'org-plantuml-jar-path) org-plantuml-jar-path))
         (puml-exec (when (boundp 'org-plantuml-executable-path) org-plantuml-executable-path))
         (puml-mode (when (boundp 'org-plantuml-exec-mode) org-plantuml-exec-mode)))
+    
+    (with-temp-file temp-input-file
+      (insert buffer-content))
+
     (setq org-preview-impatient--async-process
           (async-start
            `(lambda ()
@@ -166,16 +168,16 @@ OUTPUT-BUFFER is the buffer to update."
               (condition-case err
                   (let ((org-html-inline-images t)
                         (org-export-with-broken-links t)
-                        (buffer-content ,buffer-content)
                         (export-body-only ,body-only)
                         (temp-output-file (make-temp-file "org-preview-async-html-"))
-                        (def-setup-file ,def-setupfile))
+                        (def-setup-file ,def-setupfile)
+                        (input-file ,temp-input-file))
                     (with-temp-buffer
                       (setq default-directory ,dir)
                       (setq buffer-file-name ,file)
                       (when def-setup-file
                         (insert (format "#+SETUPFILE: %s\n" def-setup-file)))
-                      (insert buffer-content)
+                      (insert-file-contents input-file)
                       ;; Load extra packages FIRST so variables are defined
                       (dolist (pkg ',extra-pkgs)
                         (require pkg nil t))
@@ -201,6 +203,7 @@ OUTPUT-BUFFER is the buffer to update."
                         temp-output-file)))
                 (error (format "ERROR: %S" err))))
            (lambda (result-file)
+             (ignore-errors (delete-file temp-input-file))
              ;; In case of error string returned
              (if (and (stringp result-file)
                       (string-prefix-p "ERROR:" result-file))
@@ -210,7 +213,12 @@ OUTPUT-BUFFER is the buffer to update."
                                        (insert-file-contents result-file)
                                        (buffer-string))))
                    (org-preview-impatient--export-callback html-content out-buf)
-                   (delete-file result-file)))))))))
+                   (delete-file result-file)))))))
+    
+    ;; Suppress any erroneous password scanning on this process by async.el
+    (when (process-live-p org-preview-impatient--async-process)
+      (with-current-buffer (process-buffer org-preview-impatient--async-process)
+        (set (make-local-variable 'tramp-password-prompt-regexp) nil)))))
 
 (defun org-preview-impatient--trigger-export-sync ()
   "Force a synchronous export of the current buffer."
