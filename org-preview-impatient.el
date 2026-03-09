@@ -19,6 +19,8 @@
 (require 'simple-httpd)
 (require 'impatient-mode)
 
+(defvar async-prompt-for-password)
+
 (defgroup org-preview-impatient nil
   "Fluent Org-mode preview in browser."
   :group 'org
