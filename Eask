@@ -1,6 +1,6 @@
 ;; -*- lexical-binding: t -*-
 (package "org-preview-impatient"
-         "0.1.0"
+         "1.0.0"
          "Smooth, impatient Org-mode preview in browser")
 
 (website-url "https://github.com/4honor/org-preview-impatient")

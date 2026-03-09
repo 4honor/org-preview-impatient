@@ -2,7 +2,7 @@
 
 ;; Author: binz
 ;; URL: https://github.com/4honor/org-preview-impatient
-;; Version: 0.1.0
+;; Version: 1.0.0
 ;; Package-Requires: ((emacs "27.1") (async "1.9.4") (simple-httpd "1.5.1") (impatient-mode "1.1.0"))
 ;; Keywords: org, preview, impatient, html
 
