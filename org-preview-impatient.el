@@ -168,6 +168,7 @@ OUTPUT-BUFFER is the buffer to update."
                         (org-export-with-broken-links t)
                         (buffer-content ,buffer-content)
                         (export-body-only ,body-only)
+                        (temp-output-file (make-temp-file "org-preview-async-html-"))
                         (def-setup-file ,def-setupfile))
                     (with-temp-buffer
                       (setq default-directory ,dir)
@@ -194,10 +195,22 @@ OUTPUT-BUFFER is the buffer to update."
                         (setq org-confirm-babel-evaluate ',confirm-babel))
                       
                       (let ((html (org-export-as 'html nil nil export-body-only)))
-                        (org-preview-impatient--post-process-html html ,out-buf-name))))
-                (error nil)))
-           (lambda (result)
-             (org-preview-impatient--export-callback result out-buf))))))
+                        (with-temp-file temp-output-file
+                          (insert (org-preview-impatient--post-process-html html ,out-buf-name)))
+                        ;; Return the temp file path instead of the huge string
+                        temp-output-file)))
+                (error (format "ERROR: %S" err))))
+           (lambda (result-file)
+             ;; In case of error string returned
+             (if (and (stringp result-file)
+                      (string-prefix-p "ERROR:" result-file))
+                 (message "org-preview-impatient async failed: %s" result-file)
+               (when (and (stringp result-file) (file-exists-p result-file))
+                 (let ((html-content (with-temp-buffer
+                                       (insert-file-contents result-file)
+                                       (buffer-string))))
+                   (org-preview-impatient--export-callback html-content out-buf)
+                   (delete-file result-file)))))))))
 
 (defun org-preview-impatient--trigger-export-sync ()
   "Force a synchronous export of the current buffer."
