@@ -30,6 +30,10 @@
 
   ;; 如果你希望为所有预览设定一个全局的默认主题 (配合 body-only 为 nil 使用):
   ;; (setq org-preview-impatient-default-setupfile "~/GitHub/wiki/static/themes/istyle/istyle.theme")
+
+  ;; 如果你在 org 文件中使用了 htmlize 或其他特殊的代码块/媒体资源（如图表或公式）
+  ;; 请将相关的 Emacs Lisp 包名称添加到此处，以便它们能在后台渲染进程中被拉起和加载。
+  ;; (setq org-preview-impatient-extra-packages '(org-excalidraw htmlize ob-mermaid))
   )
 ```
 
