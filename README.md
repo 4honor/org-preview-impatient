@@ -10,6 +10,7 @@
 - **非阻塞导出**：利用 `async.el` 在后台进程执行渲染，绝不卡顿 Emacs。
 - **一致性保证**：自动将本地图片转换为 **Base64 编码**嵌入 HTML，确保浏览器预览效果与源文件完美一致。
 - **自动交互**：开启模式后自动打开默认浏览器并跳转至预览页面。
+- **双向同步滚动**：Emacs 编辑视口与浏览器预览区无缝双向滚动同步，追踪每一行。
 - **Excalidraw 支持**：深度集成 `org-excalidraw`。
 - **自定义主题与 SETUPFILE**：完全支持 Org 的 `#+SETUPFILE:` 指令加载自定义主题及宏。
 
@@ -55,6 +56,8 @@
 | `org-preview-impatient-extra-packages` | `'(org-excalidraw)` | 异步导出进程需要额外加载的包 |
 | `org-preview-impatient-body-only` | `t` | 导出时是否只输出 `<body>` 内容。若设为 `nil`，将包含完整的 `<head>` 信息，以便应用 `#+SETUPFILE` 引入的主题样式 |
 | `org-preview-impatient-default-setupfile` | `nil` | 全局默认的 `SETUPFILE` 文件路径。设定后等效于在每个导出的 org 文件头部自动加入 `#+SETUPFILE: xxx` |
+| `org-preview-impatient-sync-scroll` | `t` | 是否开启 Emacs 滚动时浏览器自动跟随同步 |
+| `org-preview-impatient-sync-scroll-bidirectional` | `nil` | 是否开启浏览器滚动时 Emacs 自动跟随定位（双向同步） |
 
 ## 🛠 开发与测试
 

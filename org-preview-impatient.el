@@ -52,6 +52,16 @@ This file will be injected at the top of the exported Org buffer."
   :type '(choice (const :tag "None" nil) string)
   :group 'org-preview-impatient)
 
+(defcustom org-preview-impatient-sync-scroll t
+  "If non-nil, synchronize scroll positions between Emacs and browser."
+  :type 'boolean
+  :group 'org-preview-impatient)
+
+(defcustom org-preview-impatient-sync-scroll-bidirectional nil
+  "If non-nil, scrolling in the browser also scrolls Emacs."
+  :type 'boolean
+  :group 'org-preview-impatient)
+
 ;;; Variables
 
 (defvar-local org-preview-impatient--timer nil
@@ -62,6 +72,12 @@ This file will be injected at the top of the exported Org buffer."
 
 (defvar-local org-preview-impatient--async-process nil
   "The current active async export process.")
+
+(defvar-local org-preview-impatient--scroll-clients nil
+  "List of httpd client processes waiting for a scroll update.")
+
+(defvar-local org-preview-impatient--last-line 0
+  "The last line number synced.")
 
 (defvar org-preview-impatient--mode-line-string " OrgImp"
   "String to display in the mode line.")
@@ -100,10 +116,17 @@ OUTPUT-BUFFER is the buffer to update."
   (with-temp-buffer
     (insert html)
     (goto-char (point-min))
-    ;; Inject base tag to fix relative assets paths inside impatient-mode iframe
-    (when (and out-buf-name
-               (re-search-forward "<head>" nil t))
-      (insert (format "\n<base href=\"/imp/live/%s/\">" (url-hexify-string out-buf-name))))
+    ;; Inject base tag and JS
+    (when out-buf-name
+      (goto-char (point-min))
+      (if (re-search-forward "<head>" nil t)
+          (progn
+            (insert (format "\n<base href=\"/imp/live/%s/\">" (url-hexify-string out-buf-name)))
+            (when org-preview-impatient-sync-scroll
+              (insert "\n" org-preview-impatient--sync-js "\n")))
+        (goto-char (point-max))
+        (when org-preview-impatient-sync-scroll
+          (insert "\n" org-preview-impatient--sync-js "\n"))))
     (goto-char (point-min))
     ;; Embed local images as Base64
     (while (re-search-forward "<img src=\"\\([^\"]+\\)\"" nil t)
@@ -134,6 +157,100 @@ OUTPUT-BUFFER is the buffer to update."
             (insert (format "<img src=\"data:image/%s;base64,%s\"" (or ext "png") data))))))
     (buffer-string)))
 
+(defconst org-preview-impatient--sync-js "
+<script>
+(function() {
+  if (!window.location.pathname.startsWith('/imp/live/')) return;
+  var bufNameRaw = window.location.pathname.split('/')[3];
+  if (!bufNameRaw) return;
+  var bufName = unescape(bufNameRaw);
+  var isAutoScrolling = false;
+
+  function getScrollEndpoint() { return '/org-preview-impatient/scroll/' + encodeURIComponent(bufName); }
+  function getScrolledEndpoint(line) { return '/org-preview-impatient/scrolled/' + encodeURIComponent(bufName) + '?line=' + line; }
+
+  function pollScroll() {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', getScrollEndpoint(), true);
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState == 4) {
+        if (xhr.status == 200) {
+          var line = parseInt(xhr.responseText);
+          if (!isNaN(line)) {
+            var el = document.getElementById('org-line-' + line);
+            if (!el) {
+              var elements = document.querySelectorAll('[data-line]');
+              var closest = null; var minDiff = 999999;
+              for (var i = 0; i < elements.length; i++) {
+                var elLine = parseInt(elements[i].getAttribute('data-line'));
+                var diff = line - elLine;
+                if (diff >= 0 && diff < minDiff) { minDiff = diff; closest = elements[i]; }
+              }
+              el = closest;
+            }
+            if (el) {
+              isAutoScrolling = true;
+              el.scrollIntoView({behavior: 'auto', block: 'start', inline: 'nearest'});
+              setTimeout(function(){ isAutoScrolling = false; }, 300);
+            }
+          }
+        }
+        setTimeout(pollScroll, 200);
+      }
+    };
+    xhr.onerror = function() { setTimeout(pollScroll, 2000); };
+    xhr.send();
+  }
+
+  var scrollTimeout;
+  window.addEventListener('scroll', function() {
+    if (isAutoScrolling) return;
+    clearTimeout(scrollTimeout);
+    scrollTimeout = setTimeout(function() {
+      var elements = document.querySelectorAll('[data-line]');
+      var topEl = null;
+      for (var i = 0; i < elements.length; i++) {
+        var rect = elements[i].getBoundingClientRect();
+        if (rect.top >= 0 && rect.top < window.innerHeight / 2) { topEl = elements[i]; break; }
+      }
+      if (topEl) {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', getScrolledEndpoint(topEl.getAttribute('data-line')), true);
+        xhr.send();
+      }
+    }, 150);
+  });
+  pollScroll();
+})();
+</script>")
+
+(defun org-preview-impatient--sync-line-number-filter (tree backend _info)
+  "Inject line numbers into HTML elements for sync scroll."
+  (when (and org-preview-impatient-sync-scroll (org-export-derived-backend-p backend 'html))
+    (let ((headlines (org-element-map tree 'headline #'identity))
+          (blocks (org-element-map tree '(paragraph quote-block table item src-block) #'identity)))
+      (dolist (hl headlines)
+        (let* ((begin (org-element-property :begin hl)))
+          (when begin
+            (let ((line (line-number-at-pos begin)))
+              (unless (org-element-property :CUSTOM_ID hl)
+                (org-element-put-property hl :CUSTOM_ID (format "org-line-%d" line)))))))
+      (dolist (el blocks)
+        (let* ((begin (org-element-property :begin el)))
+          (when (and begin
+                     (not (eq 'item (org-element-type (org-element-property :parent el)))))
+            (let* ((line (line-number-at-pos begin))
+                   (snippet (list 'export-snippet
+                                  (list :back-end "html"
+                                        :value (format "<a data-line=\"%d\" id=\"org-line-%d\"></a>" line line)
+                                        :post-blank 0))))
+              (if (org-element-contents el)
+                  (org-element-set-contents 
+                   el
+                   (cons snippet (org-element-contents el)))
+                (org-element-insert-before snippet el))))))))
+  tree)
+
 (defun org-preview-impatient--trigger-async-export (buffer-content)
   "Start an asynchronous export of BUFFER-CONTENT."
   (let ((lp load-path)
@@ -147,6 +264,8 @@ OUTPUT-BUFFER is the buffer to update."
         (body-only org-preview-impatient-body-only)
         (def-setupfile org-preview-impatient-default-setupfile)
         (temp-input-file (make-temp-file "org-preview-async-in-"))
+        (sync-scroll org-preview-impatient-sync-scroll)
+        (sync-bidirectional org-preview-impatient-sync-scroll-bidirectional)
         ;; Safely capture variables to pass to the async worker
         (babel-langs (when (boundp 'org-babel-load-languages) org-babel-load-languages))
         (confirm-babel (when (boundp 'org-confirm-babel-evaluate) org-confirm-babel-evaluate))
@@ -168,6 +287,8 @@ OUTPUT-BUFFER is the buffer to update."
               (condition-case err
                   (let ((org-html-inline-images t)
                         (org-export-with-broken-links t)
+                        (org-preview-impatient-sync-scroll ,sync-scroll)
+                        (org-preview-impatient-sync-scroll-bidirectional ,sync-bidirectional)
                         (export-body-only ,body-only)
                         (temp-output-file (make-temp-file "org-preview-async-html-"))
                         (def-setup-file ,def-setupfile)
@@ -196,7 +317,8 @@ OUTPUT-BUFFER is the buffer to update."
                       (when (boundp 'org-confirm-babel-evaluate)
                         (setq org-confirm-babel-evaluate ',confirm-babel))
                       
-                      (let ((html (org-export-as 'html nil nil export-body-only)))
+                      (let* ((org-export-filter-parse-tree-functions '(org-preview-impatient--sync-line-number-filter))
+                             (html (org-export-as 'html nil nil export-body-only)))
                         (with-temp-file temp-output-file
                           (insert (org-preview-impatient--post-process-html html ,out-buf-name)))
                         ;; Return the temp file path instead of the huge string
@@ -234,7 +356,8 @@ OUTPUT-BUFFER is the buffer to update."
         (insert (format "#+SETUPFILE: %s\n" org-preview-impatient-default-setupfile)))
       (insert buffer-content)
       (org-mode)
-      (let ((html (org-export-as 'html nil nil org-preview-impatient-body-only)))
+      (let* ((org-export-filter-parse-tree-functions '(org-preview-impatient--sync-line-number-filter))
+             (html (org-export-as 'html nil nil org-preview-impatient-body-only)))
         (org-preview-impatient--post-process-html html (buffer-name org-preview-impatient--output-buffer))))))
 
 (defun org-preview-impatient-update (&optional sync)
@@ -247,6 +370,65 @@ If SYNC is non-nil, perform the export synchronously."
       (org-preview-impatient--trigger-async-export buffer-content))))
 
 ;;; Minor Mode
+
+(defun org-preview-impatient--on-window-scroll (window display-start)
+  "Hook to capture Emacs window scroll and push to browser.
+WINDOW is the scrolled window, DISPLAY-START is the new start position."
+  (let ((buf (window-buffer window)))
+    (when (buffer-local-value 'org-preview-impatient-mode buf)
+      (with-current-buffer buf
+        (when org-preview-impatient-sync-scroll
+          (let ((line (line-number-at-pos display-start)))
+            (unless (equal line org-preview-impatient--last-line)
+              (setq org-preview-impatient--last-line line)
+              (org-preview-impatient--notify-scroll line))))))))
+
+(defun org-preview-impatient--notify-scroll (line)
+  "Notify long-polling clients to scroll to LINE."
+  (while org-preview-impatient--scroll-clients
+    (let ((proc (pop org-preview-impatient--scroll-clients)))
+      (condition-case nil
+          (with-temp-buffer
+            (insert (number-to-string line))
+            (httpd-send-header proc "text/plain" 200 :Cache-Control "no-cache"))
+        (error nil)))))
+
+(defun httpd/org-preview-impatient/scroll (proc path query &rest _)
+  "Long polling endpoint for receiving scroll updates."
+  (let* ((decoded (url-unhex-string path))
+         (parts (cdr (split-string decoded "/")))
+         (buffer-name (nth 2 parts))
+         (buffer (get-buffer buffer-name)))
+    (if (and buffer (buffer-local-value 'org-preview-impatient-mode buffer))
+        (with-current-buffer buffer
+          (push proc org-preview-impatient--scroll-clients))
+      (httpd-error proc 404 "Buffer not found or preview mode not enabled."))))
+
+(defun httpd/org-preview-impatient/scrolled (proc path _query &rest _)
+  "Endpoint called by browser when it scrolls."
+  (let* ((decoded (url-unhex-string path))
+         (parts (cdr (split-string decoded "/")))
+         (buffer-name (nth 2 parts))
+         (buffer (get-buffer buffer-name))
+         (line-str (cadr (assoc "line" _query))))
+    (if (and buffer line-str
+             (buffer-local-value 'org-preview-impatient-mode buffer)
+             (buffer-local-value 'org-preview-impatient-sync-scroll-bidirectional buffer))
+        (with-current-buffer buffer
+           (let ((line (string-to-number line-str)))
+             (setq org-preview-impatient--last-line line)
+             (when (get-buffer-window buffer)
+               (with-selected-window (get-buffer-window buffer)
+                 (goto-char (point-min))
+                 (forward-line (1- line))
+                 (recenter 0))))
+           (with-temp-buffer
+             (insert "OK")
+             (httpd-send-header proc "text/plain" 200 :Cache-Control "no-cache")))
+      (when proc
+         (with-temp-buffer
+           (insert "Ignored")
+           (httpd-send-header proc "text/plain" 200 :Cache-Control "no-cache"))))))
 
 (defun org-preview-impatient--after-change (&rest _args)
   "Hook for buffer changes."
@@ -276,6 +458,7 @@ If SYNC is non-nil, perform the export synchronously."
             (html-mode))
           (impatient-mode 1))
         (add-hook 'after-change-functions #'org-preview-impatient--after-change nil t)
+        (add-hook 'window-scroll-functions #'org-preview-impatient--on-window-scroll nil t)
         (require 'simple-httpd)
         (setq httpd-port org-preview-impatient-port)
         (httpd-start)
@@ -286,7 +469,11 @@ If SYNC is non-nil, perform the export synchronously."
           (browse-url url)
           (message "Org Preview Impatient started at %s" url)))
     (progn
+      (while org-preview-impatient--scroll-clients
+        (let ((proc (pop org-preview-impatient--scroll-clients)))
+          (ignore-errors (delete-process proc))))
       (remove-hook 'after-change-functions #'org-preview-impatient--after-change t)
+      (remove-hook 'window-scroll-functions #'org-preview-impatient--on-window-scroll t)
       (when org-preview-impatient--timer
         (cancel-timer org-preview-impatient--timer)
         (setq org-preview-impatient--timer nil))
