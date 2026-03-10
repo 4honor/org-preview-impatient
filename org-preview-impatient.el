@@ -94,10 +94,21 @@ This file will be injected at the top of the exported Org buffer."
 ;;; Excalidraw Support
 
 (defun org-preview-impatient-setup-excalidraw ()
-  "Setup excalidraw link handling via org-excalidraw."
-  ;; Reference: https://github.com/4honor/org-excalidraw
-  ;; This ensures the async process can handle excalidraw:// links.
-  )
+  "Setup excalidraw link handling via org-excalidraw.
+This ensures the async process can gracefully handle `excalidraw://` links
+by stripping the leading slashes before passing to `org-excalidraw'."
+  (when (require 'org-excalidraw nil t)
+    (let ((default-export (plist-get (cdr (assoc "excalidraw" org-link-parameters)) :export)))
+      (org-link-set-parameters
+       "excalidraw"
+       :export (lambda (link desc backend)
+                 (let ((clean-link (if (string-match "^//+\\(.*\\)" link)
+                                       (match-string 1 link)
+                                     link)))
+                   (if default-export
+                       (funcall default-export clean-link desc backend)
+                     ;; Fallback gracefully if somehow missing export
+                     (org-export-string-as (format "[[file:%s]]" clean-link) backend t))))))))
 
 ;;; Core Logic
 
@@ -152,9 +163,13 @@ OUTPUT-BUFFER is the buffer to update."
                         (base64-encode-region (point-min) (point-max) t)
                         (buffer-string)))
                 (ext (file-name-extension path)))
-            (goto-char match-beg)
-            (delete-region match-beg match-end)
-            (insert (format "<img src=\"data:image/%s;base64,%s\"" (or ext "png") data))))))
+            (let ((mime-type (pcase (downcase (or ext "png"))
+                               ("svg" "svg+xml")
+                               ("jpg" "jpeg")
+                               (other other))))
+              (goto-char match-beg)
+              (delete-region match-beg match-end)
+              (insert (format "<img src=\"data:image/%s;base64,%s\"" mime-type data)))))))
     (buffer-string)))
 
 (defconst org-preview-impatient--sync-js "
@@ -303,6 +318,9 @@ OUTPUT-BUFFER is the buffer to update."
                       (dolist (pkg ',extra-pkgs)
                         (require pkg nil t))
                       
+                      ;; Ensure excalidraw override is active
+                      (org-preview-impatient-setup-excalidraw)
+
                       ;; Setup plantuml variables
                       (when ',puml-jar (setq org-plantuml-jar-path ',puml-jar))
                       (when ',puml-exec (setq org-plantuml-executable-path ',puml-exec))
@@ -355,6 +373,7 @@ OUTPUT-BUFFER is the buffer to update."
       (when org-preview-impatient-default-setupfile
         (insert (format "#+SETUPFILE: %s\n" org-preview-impatient-default-setupfile)))
       (insert buffer-content)
+      (org-preview-impatient-setup-excalidraw)
       (org-mode)
       (let* ((org-export-filter-parse-tree-functions '(org-preview-impatient--sync-line-number-filter))
              (html (org-export-as 'html nil nil org-preview-impatient-body-only)))
