@@ -50,6 +50,7 @@ eask test ert tests/test-*.el
 - [x] 本地图片是否成功转换为 Base64 嵌入（验证一致性）。
 - [x] PlantUML, Excalidraw 等集成在同步与异步模式下能否正常导出。
 - [x] 能否支持 `#+SETUPFILE` 及外联主题 `<head>` 注入。
+- [x] 能否注入并运行同步滚动的 JavaScript，使得 Emacs 与浏览器的滚动双向同步。
 
 ---
 
