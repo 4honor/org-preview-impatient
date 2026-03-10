@@ -18,7 +18,7 @@
 eask install-deps --dev
 ```
 
-然后还需要为其下载底层配套的二进制文件以让 LSP 生效：
+然后还需要为其独立安装 `ellsp` 并下载底层配套的二进制文件以让 LSP 生效（注意：要求 Emacs 28.1+）：
 
 ```bash
 make setup-ellsp

@@ -21,5 +21,4 @@
 (depends-on "impatient-mode" "1.1.0")
 
 (development
-  (depends-on "f")
-  (depends-on "ellsp"))
+  (depends-on "f"))

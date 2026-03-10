@@ -8,6 +8,7 @@ compile:
 	eask compile
 
 setup-ellsp:
+	eask install ellsp --dev
 	find .eask -type f -name "install-ellsp" -exec bash {} \;
 
 clean:
